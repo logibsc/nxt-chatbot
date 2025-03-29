@@ -1,16 +1,33 @@
-"use client"; 
+"use client";
 
 import { useState } from "react";
+import { deflate } from "zlib";
 
 export default function Chatbot() {
   const [messages, setMessages] = useState<string[]>([]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (input.trim() === "") return;
-
     setMessages([...messages, `You: ${input}`]);
-    setInput(""); 
+    setInput("");
+    setLoading(true);
+    
+    try {
+      const res = await fetch("http://127.0.0.1:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json"},
+        body: JSON.stringify({message: input}),
+      });
+
+      const data = await res.json();
+      setMessages((prev) => [...prev, `AI: ${data.response}`]);
+    } catch (error) {
+      setMessages((prev) => [...prev, "AI: Sorry. something went wrong."]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -20,6 +37,7 @@ export default function Chatbot() {
         {messages.map((msg, index) => (
           <p key={index} className="text-sm text-blue-600">{msg}</p>
         ))}
+        {loading && <p className="text-sm text-gray-500">AI is typing...</p>}
       </div>
       <input
         type="text"
@@ -31,8 +49,9 @@ export default function Chatbot() {
       <button
         onClick={sendMessage}
         className="mt-2 w-full bg-blue-600 text-white py-1 rounded"
+        disabled={loading}
       >
-        Send
+        {loading ? "Sending..." : "Send"}
       </button>
     </div>
   );
