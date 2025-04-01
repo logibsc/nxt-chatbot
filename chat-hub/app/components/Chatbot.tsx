@@ -1,86 +1,68 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
+import { FaPaperPlane } from "react-icons/fa";
 
 const Chatbot = () => {
-  const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
-  const [input, setInput] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [message, setMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<string[]>([]);
 
-  const sendMessage = async (message: string) => {
+  const sendMessage = async () => {
     if (!message.trim()) return;
-
-    const userMessage = { sender: "You", text: message };
-    setMessages((prev) => [...prev, userMessage]);
+    setChatHistory([...chatHistory, `You: ${message}`]);
+    setMessage("");
 
     try {
       const response = await fetch("http://127.0.0.1:8000/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json"},
-        body: JSON.stringify({ message }),
+        headers: { "Content-Type": "application/x-www-form-urlencoded"},
+        body: new URLSearchParams({ prompt: message }),
       });
 
       const data = await response.json();
-      setMessages((prev) => [...prev, { sender: "AI", text: data.response }]);
-    } catch (error) {
-      setMessages((prev) => [...prev, {
-        sender: "AI", text: "Error connecting to server."
-      }]);
-    }
-    
-    setInput("");
-  };
+      console.log("AI: ", data);
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      sendMessage(input);
+      if (data.response) {
+        setChatHistory((prev) => [...prev, `AI: ${data.response}`]);
+      }
+    } catch (error) {
+      console.error("Error fetching AI response: ", error);
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files?.length) return;
-
-    const file = event.target.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("user_query", "Analyze this file.");
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/upload/document", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-      setMessages((prev) => [...prev, { sender: "AI", text: data.response }]);
-    } catch (error) {
-      setMessages((prev) => [...prev, { sender: "AI", text: "Error processing file."}]);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
   return (
-    <div className="max-w-md mx-auto p-4 bg-gray-100 rounded-lg shadow-md">
-      <div className="h-80 overflow-y-auto p-2 border-gray-300 rounded">
-        {messages.map((msg, index) => (
-          <p key={index} className={msg.sender === "You" ? "text-blue-500" : "text-green-500"}>
-            <strong>{msg.sender}:</strong> {msg.text}
-          </p>
+    <div className="chatbot-container flex flex-col justify-between h-full max-w-lg mx-auto bg-black text-green-500 rounded-lg shadow-lg p-4 font-mono border-2 border-green-500">
+      {/* Chat History */}
+      <div className="chat-history flex-grow overflow-y-auto mb-4 max-h-[400px]">
+        {chatHistory.map((msg, index) => (
+          <div key={index} className="message p-1 border-b border-green-500">
+            <p>{msg}</p>
+          </div>
         ))}
       </div>
-      <div className="flex gap-2 mt-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyPress}
+
+      {/* Typing box and send button */}
+      <div className="flex items-center border-t-2 border-green-500 pt-2">
+        <textarea 
+          className="flex-grow p-2 border rounded-lg bg-black text-green-500 border-green-500 resize-none"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Type a message..."
-          className="flex-1 p-2 border border-gray-400 rounded"
         />
-        <button onClick={() => sendMessage(input)} className="bg-blue-500 text-white px-3 py-1 rounded">
-          Send
+        <button
+          className="ml-2 p-2 rounded-full bg-green-500 text-black"
+          onClick={sendMessage}
+        >
+          <FaPaperPlane />
         </button>
-        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-        <button onClick={() => fileInputRef.current?.click()} className="bg-gray-500 text-white px-3 py-1 rounded">📎</button>
       </div>
     </div>
   );
