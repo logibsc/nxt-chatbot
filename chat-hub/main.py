@@ -6,6 +6,10 @@ from typing import Optional
 from fastapi.responses import JSONResponse
 from PyPDF2 import PdfReader
 import docx
+from STT import listen
+from TTS import speak
+
+
 
 app = FastAPI()
 
@@ -28,7 +32,9 @@ async def home():
 @app.post("/chat")
 async def chat(prompt: str = Form(...)):
     response = model.generate_content(prompt)
-    return {"response": response.text}
+    text = response.text
+    speak(text)
+    return {"response": text}
 
 @app.post("/upload/image")
 async def upload_image(file: UploadFile = File(...)):
@@ -56,3 +62,13 @@ async def upload_document(file: UploadFile = File(...)):
 
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+
+@app.get("/speech")
+async def get_speech():
+    transcription = listen()
+    if transcription:
+        return {"transcription": transcription}
+    else:
+        return {"transcription": "Sorry, I couldn’t understand your voice."}
